@@ -3,6 +3,7 @@ import torch
 import torch.optim as optim
 import pandas as pd
 import os 
+from torch_geometric.data import Data
 
 def create_features(graph_node):
     if type(graph_node) is dict:
@@ -14,8 +15,8 @@ def create_features(graph_node):
     
 def create_adjacency_matrix(edges):
     nodel_size = 1+torch.max(edges)
-    # I_matrix = torch.eye(nodel_size)
-    I_matrix = torch.zeros([nodel_size, nodel_size])
+    I_matrix = torch.eye(nodel_size).int()
+    # I_matrix = torch.zeros([nodel_size, nodel_size])
     A_matrix = I_matrix.clone()
     for edge in edges:
         A_matrix[edge[0], edge[1]] = 1
