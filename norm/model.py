@@ -50,9 +50,9 @@ class GCN(nn.Module):
     
     def forward(self, Adj_matrix, input_feature):
         x = self.layer1(Adj_matrix, input_feature)     #这里的参数对应与GCN_layer.forward()的参数
-        x=self.activation(x) 
+        x = self.activation(x) 
         x = self.layer2(Adj_matrix,x)
-        x=self.softmax(x)     
+        x = self.softmax(x)     
         return x
     
     
