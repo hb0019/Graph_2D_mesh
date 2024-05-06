@@ -52,7 +52,7 @@ class Memory:
             self.graph_nodes.append(None)
         for i in range(graph_data.index.shape[0]):
             node_index = graph_data.index[i].item()
-            self.graph_nodes[0][node_index] = graph_data.x[i] 
+            self.graph_nodes[0][node_index] = graph_data.x[i]
             self.weight_index[node_index] = 1/torch.sqrt(graph_data.edge_attr[node_index].sum()).item() # 对index节点的度求根号取倒数
             self.count_index[node_index] = 0
             
@@ -64,10 +64,10 @@ class Memory:
     def initialize_memory(self, gcn_model_path, graph_data):
         self.init_gcn_weight(gcn_model_path)
         self.init_graph(graph_data)
-        print(self.graph_nodes)
-        print(self.weight_index)
-        print(self.retrieval_index)
-        print(graph_data.index)
+        # print(self.graph_nodes)
+        # print(self.weight_index)
+        # print(self.retrieval_index)
+        # print(graph_data.index)
         print("Memory initialization complete!")
 
 
@@ -118,6 +118,7 @@ class Router:
         except:
             sock.close()
 
+
 class Chip:
     def __init__(self, gcn_model_path, graph_data, num_list_id):
         self.memory = Memory(gcn_model_path, graph_data)
@@ -145,7 +146,7 @@ class Chip:
         message = {'graph_nodes':self.memory.graph_nodes[layer_stage].tolist(), \
                    'graph_index':self.graph_data.index.tolist(), \
                    'layer_stage':layer_stage}
-        # print(message)
+        print(message)
         self.router.send_message(message)
         return
 
