@@ -13,6 +13,8 @@ from threading import Thread
 from queue import Queue
 import socket
 import json
+import time
+import copy
 
 import sys
 sys.path.append("/root/git/Graph_2D_mesh/norm")
@@ -25,7 +27,7 @@ class Memory:
         self.graph_nodes = list()
         self.weight_index = dict()
         self.retrieval_index = defaultdict(list)
-        self.count_index = dict()
+        self.count_index = list()
 
         self.initialize_memory(gcn_model_path, graph_data)
         
@@ -44,22 +46,25 @@ class Memory:
                 self.Conv_weights[layer_index-1][layer_name[0]] = GCN_parameters[layer_parameter]
     
     def init_graph(self, graph_data):
-        # load graph
+        # load graph 
         assert len(self.Conv_weights)>0, "Error: Conv_weights is empty. Please initialize Conv_weights first"
         features_backup_num = len(self.Conv_weights)
         self.graph_nodes.append({})
-        for _ in range(features_backup_num):
-            self.graph_nodes.append(None)
+        self.count_index.append({})
         for i in range(graph_data.index.shape[0]):
             node_index = graph_data.index[i].item()
             self.graph_nodes[0][node_index] = graph_data.x[i]
             self.weight_index[node_index] = 1/torch.sqrt(graph_data.edge_attr[node_index].sum()).item() # 对index节点的度求根号取倒数
-            self.count_index[node_index] = 0
+            self.count_index[0][node_index] = 0
             
             for Adj_node_index in range(graph_data.edge_attr[node_index].shape[0]):
                 if graph_data.edge_attr[node_index][Adj_node_index]==1:
                     self.retrieval_index[node_index].append(Adj_node_index)
         self.graph_nodes[0] = torch.stack(list(self.graph_nodes[0].values()), dim=0)
+
+        for i in range(features_backup_num):
+            self.graph_nodes.append(torch.zeros(self.graph_nodes[0].shape[0], self.Conv_weights[i]['W'].shape[1]))
+            self.count_index.append(copy.deepcopy(self.count_index[0]))
 
     def initialize_memory(self, gcn_model_path, graph_data):
         self.init_gcn_weight(gcn_model_path)
@@ -72,12 +77,13 @@ class Memory:
 
 
 class Router:
-    def __init__(self, in_graph_index, graph_attr, retrieval_index, num_list_id):
+    def __init__(self, in_graph_index, graph_attr, retrieval_index, num_list_id, communica_type='UDP'):
         self.in_graph_index = in_graph_index
         self.graph_attr = copy.deepcopy(graph_attr[self.in_graph_index.reshape(-1)])
         self.retrieval_index = retrieval_index
         self.package = Queue(maxsize=100)
         self.num_list_id = num_list_id
+        self.communica_type = communica_type
         self.get_routing()
 
     def get_routing(self):
@@ -100,53 +106,86 @@ class Router:
         return 
         
     def send_message(self, message):
-        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        dst_addrs = [('0.0.0.0', 20000+i) for i in self.num_list_id]
         json_string = json.dumps(message).encode()
-        for dst_addr in dst_addrs:
-            udp_socket.sendto(json_string, dst_addr)
-        udp_socket.close() 
+        # UDP scheme
+        if self.communica_type=='UDP':
+            udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            dst_addrs = [('0.0.0.0', 20000+i) for i in self.num_list_id]
+            for dst_addr in dst_addrs:
+                udp_socket.sendto(json_string, dst_addr)
+            udp_socket.close() 
+        # TCP scheme
+        else:
+            dst_addrs = [('0.0.0.0', 20000+i) for i in self.num_list_id]
+            for dst_addr in dst_addrs:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect(dst_addr)
+                sock.send(json_string)
+                sock.close()
 
     def receive_message(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind(('0.0.0.0', 20000+self.num_list_id[0]))
-        try:
-            while True:
-                ret, addr = sock.recvfrom(10240)
-                if ret:
-                    self.package.put(ret)
-        except:
-            sock.close()
-
+        # UDP scheme
+        if self.communica_type=='UDP':
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.bind(('0.0.0.0', 20000+self.num_list_id[0]))
+            try:
+                while True:
+                    ret, addr = sock.recvfrom(10240)
+                    if ret:
+                        self.package.put(ret)
+            except:
+                sock.close()
+        # TCP scheme
+        else:
+            sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(('0.0.0.0', 20000+self.num_list_id[0]))
+            sock.listen(128)
+            try:
+                while True:
+                    client_socket, addr = sock.accept()
+                    while True:
+                        recv_data = client_socket.recv(10240)
+                        if recv_data:
+                            self.package.put(recv_data) 
+                        else:
+                            break
+                    client_socket.close()
+            except:
+                sock.close()
 
 class Chip:
     def __init__(self, gcn_model_path, graph_data, num_list_id):
+        self.chip_id = num_list_id[0]
         self.memory = Memory(gcn_model_path, graph_data)
-        self.router = Router(graph_data.index, graph_data.edge_attr, self.memory.retrieval_index, num_list_id)
+        self.router = Router(graph_data.index, graph_data.edge_attr, self.memory.retrieval_index, num_list_id, communica_type='TCP')
         self.graph_data = graph_data
+        
 
-    def message_stage(self):
+    def message_stage(self, layer_stage=None):
         # TODO: 通过当前的状态栏，确定不同层级的下一步状态
-        try:
-            layer_stage = self.memory.graph_nodes.index(None)
-        except:
-            print('stage overflow')
-            layer_stage = len(self.memory.graph_nodes)-1
+        # TODO: message 的临时存储!!!
+        if layer_stage is None:
+            try:
+                layer_stage = self.memory.graph_nodes.index(None)
+            except:
+                print('stage overflow')
+                layer_stage = len(self.memory.graph_nodes)-1
         # graph_tensor = torch.stack(list(self.memory.graph_nodes[layer_stage-1].values()), dim=0)
         graph_tensor = self.memory.graph_nodes[layer_stage-1]
-        self.memory.graph_nodes[layer_stage] = torch.mm(graph_tensor, self.memory.Conv_weights[layer_stage-1]['W'])+\
-            self.memory.Conv_weights[layer_stage-1]['bias']
         D_tensor = torch.tensor([[item] for item in self.memory.weight_index.values()])
-        self.memory.graph_nodes[layer_stage] = self.memory.graph_nodes[layer_stage] * D_tensor
-        # print(self.memory.graph_nodes[layer_stage])
+        # self.memory.graph_nodes[layer_stage] = torch.mm(graph_tensor, self.memory.Conv_weights[layer_stage-1]['W'])+\
+        #     self.memory.Conv_weights[layer_stage-1]['bias']
+        # self.memory.graph_nodes[layer_stage] = self.memory.graph_nodes[layer_stage] * D_tensor
         # message complete!
-        return layer_stage
+        message_tensor = (torch.mm(graph_tensor, self.memory.Conv_weights[layer_stage-1]['W'])+\
+            self.memory.Conv_weights[layer_stage-1]['bias']) * D_tensor
+        return layer_stage, message_tensor
 
-    def send_stage(self, layer_stage):
-        message = {'graph_nodes':self.memory.graph_nodes[layer_stage].tolist(), \
+    def send_stage(self, layer_stage, message_tensor):
+        message = {'graph_nodes':message_tensor.tolist(), \
                    'graph_index':self.graph_data.index.tolist(), \
                    'layer_stage':layer_stage}
-        print(message)
+        # print(message)
         self.router.send_message(message)
         return
 
@@ -154,25 +193,32 @@ class Chip:
         while True:
             message = self.router.package.get()
             message = json.loads(message.decode())
+            recv_layer_stage = message['layer_stage']
             # TODO: if message['layer_stage'] != layer_stage:
             for i, scr_id in enumerate(message['graph_index']):
                 for dst_id in self.router.routing.get(scr_id[0], []):
                     h_dst_node = self.memory.weight_index[dst_id]*torch.tensor(message['graph_nodes'][i])
                     # print(dst_id)
-                    # print(self.graph_data.index.tolist().index([dst_id]))
-                    self.memory.graph_nodes[layer_stage][self.graph_data.index.tolist().index([dst_id])] = \
-                        self.memory.graph_nodes[layer_stage][self.graph_data.index.tolist().index([dst_id])] + h_dst_node
-                    self.memory.count_index[dst_id] += 1
+                    try:
+                        self.memory.graph_nodes[recv_layer_stage][self.graph_data.index.tolist().index([dst_id])] = \
+                            self.memory.graph_nodes[recv_layer_stage][self.graph_data.index.tolist().index([dst_id])] + h_dst_node
+                    except:
+                        print(f'chip {self.chip_id} Error!')
+                        print(f'chip {self.chip_id} graph_nodes:\t', self.memory.graph_nodes[recv_layer_stage])
+                        print(f'chip {self.chip_id} index:\t', self.graph_data.index.tolist().index([dst_id]))
+                        print(f'chip {self.chip_id} h:\t', h_dst_node)
+                        exit()
+                    self.memory.count_index[recv_layer_stage][dst_id] += 1
             # 判断当前阶段是否收集完成所有邻接边传来的特征
-            if self.complete_agg():
+            if self.complete_agg(layer_stage):
                 return
         
-    def complete_agg(self):
-        for id, count in self.memory.count_index.items():
+    def complete_agg(self, layer_stage):
+        for id, count in self.memory.count_index[layer_stage].items():
             if sum(self.graph_data.edge_attr[id]).item() > count:
                 return False
-        for id in self.memory.count_index.keys(): 
-            self.memory.count_index[id] = 0
+        # for id in self.memory.count_index.keys(): 
+        #     self.memory.count_index[id] = 0
         return True
 
     def activate_stage(self, layer_stage):
@@ -180,23 +226,25 @@ class Chip:
             self.memory.graph_nodes[layer_stage] = F.relu(self.memory.graph_nodes[layer_stage])
         else:
             self.memory.graph_nodes[layer_stage] = F.softmax(self.memory.graph_nodes[layer_stage])
+        return layer_stage+1
         
     
-    def action(self):
-        while None in self.memory.graph_nodes:
-            layer_stage = self.message_stage()
-            self.send_stage(layer_stage)
+    def action(self): 
+        time.sleep(1)
+        layer_stage = 1
+        # TODO: 控制GCN层执行的方式？
+        # while None in self.memory.graph_nodes:
+        while layer_stage < len(self.memory.graph_nodes):
+            layer_stage, message_tensor = self.message_stage(layer_stage)
+            self.send_stage(layer_stage, message_tensor)
             self.aggregation_stage(layer_stage)
-            self.activate_stage(layer_stage)
+            layer_stage = self.activate_stage(layer_stage)
         # print(self.memory.graph_nodes[-1])
         # print(self.graph_data.index, self.graph_data.y)
         result = torch.argmax(self.memory.graph_nodes[-1], dim=1)
         index = self.graph_data.index.reshape(-1)
         label = self.graph_data.y.reshape(-1)
-        print(f'index: {index}')
-        print(f'label: {label}')
-        print(f'result: {result}')
-        print(label==result)
+        print(f'chip {self.chip_id} result:\nindex: {index}\nlabel: {label}\nresult: {result}\nf{label==result}\n')
         print("Action complete!")
         return 
 
@@ -205,7 +253,7 @@ class Chip:
         t2 = Thread(target=self.action, args=())
         t1.start()
         t2.start()
-        print("Chip running...")
+        print(f"Chip {self.chip_id} running...")
         pass 
 
 
@@ -213,7 +261,7 @@ def graph_data_split(graph_data, num=1):
     def order_split(index, num):
         part = [(i*index.shape[0]//num, (i+1)*index.shape[0]//num) for i in range(num)]
         part_index_list = [index[begin:end] for begin, end in part]
-        return part_index_list
+        return part_index_list 
     def Data_extra(item_data, index):
         sub_item_data = item_data[index.data]
         return sub_item_data
@@ -234,7 +282,7 @@ def graph_data_split(graph_data, num=1):
 if __name__ == "__main__":
     DATA_PATH = "/root/git/Graph_2D_mesh/data/karate"
     MODEL_PATH = "/root/git/Graph_2D_mesh/norm/model.pt"
-    NUM_CHIP = 2
+    NUM_CHIP = 8
     dataset = dataset_create(DATA_PATH)
     graph_data = dataset['graph']
     graph_data.index = torch.tensor([i for i in range(dataset['graph'].x.shape[0])])
