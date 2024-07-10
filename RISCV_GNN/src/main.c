@@ -81,10 +81,16 @@ int main(void){
 		if (router_rcv_int_flag){
 			router_rcv_int_flag = 0;
 			uint8_t layer_index = rec_MessagePackage->layer_index;
-    		uint16_t node_index = rec_MessagePackage->node_index;
-			if (node_feature_data->degree[layer_index][node_index]!=0){
+			uint16_t node_index = rec_MessagePackage->node_index;
+			if (node_feature_data.degree[layer_index][node_index]!=0){
 				int node_list[1] = {node_index};
 				message(&send_MessagePackage, &node_feature_data, node_list, 1, 0);
+			} else {
+				printf("node_index:%d, feature:\t", node_index);
+				for (int i=0; i<node_feature_data.feature[layer_index].vec[node_index].n; i++){
+					printf("%f\t", node_feature_data.feature[layer_index].vec[node_index].mat[i]);
+				}
+				printf("\n");
 			}
 		} 
 	}

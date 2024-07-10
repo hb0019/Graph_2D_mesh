@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "sMPI.h"
+#include "numerical_tool.h"
 
 
 struct vector{
@@ -63,7 +64,8 @@ void vector_add(struct vector *a, struct vector *b, struct vector *c){
         return -1;
     }
     for (int i=0; i<a->n; i++){
-        c->mat[i] = a->mat[i] + b->mat[i] + c->mat[i];
+        float temp = float_add(a->mat[i], b->mat[i]);
+        c->mat[i] =  float_add(temp, c->mat[i]);
     }
     return;
 }
