@@ -21,7 +21,8 @@ uint8_t router_rcv_int_flag = 0;
 // 片上特殊存储结构体
 struct message_package rec_MessagePackage;
 struct message_package send_MessagePackage;
-struct node_feature node_feature_data; // 节点特征结构体
+struct node_feature node_feature_data; 		// 节点特征结构体
+struct GCN_parameter GCN_parameter_data;	// 图卷积参数结构体
 
 
 //定义中断函数
@@ -57,7 +58,6 @@ void load_data(){
 	}
 
 	rec_raw_pkt(&rec_MessagePackage, sram_addr, rdata_rcv_len);
-
 }
 
 

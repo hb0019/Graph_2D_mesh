@@ -28,6 +28,8 @@ struct float_info{
 //                        00111100000000000000000 => 左移三位
 // -1.875   -> 1_01111111_11100000000000000000000
 //                        00111100000000000000000 => 左移三位
+// 83.53125 -> 0_10000101_01001110001000000000000 
+                          101001110001000000000000
 struct float_info float_extract(float f){
     int *p = (int*)&f;
     static struct float_info fi;
@@ -103,6 +105,40 @@ float float_add(float a, float b){
     return float_combine(&fi);
 }
 
+// 0.0125   -> 0_01111000_10011001100110011001101 
+// 0.3      -> 0_01111101_00110011001100110011010 
+// 0.00375  -> 0_01110110_11101011100001010001111
+                         111101011100001010010000
+float float_mul(float a, float b){
+    if (a == 0.0 | b == 0.0)  return 0.0;
+
+    struct float_info ai = float_extract(a);
+    struct float_info bi = float_extract(b);
+    struct float_info fi;
+
+    // step1: 尾数相乘
+    unsigned long long temp = (ai.mantissa | 0x00800000);
+	temp = (temp * (bi.mantissa | 0x00800000)) >> 23;
+    fi.mantissa = (unsigned int)temp;
+
+    // step2: 阶码相加
+    fi.exponent = ai.exponent + bi.exponent - 128;
+
+    // step3: 规格化
+    fi.exponent = fi.exponent + (fi.mantissa >> 23);
+    fi.mantissa = fi.mantissa & 0x007FFFFF;
+
+    // step4: 结果规格化
+    return float_combine(&fi);
+}
+
+float float_div(float a, float b){
+    struct float_info ai = float_extract(a);
+    struct float_info bi = float_extract(b);
+    struct float_info fi;
+
+    return float_combine(&fi);
+}
 
 
 #endif

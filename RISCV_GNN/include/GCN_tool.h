@@ -32,6 +32,13 @@ struct message_package{
     vector node;
 }
 
+struct GCN_parameter{
+    uint8_t layer_num;
+    uint16_t *layer_dimension;
+    // weight;
+    // bias;
+}
+
 
 void node_data_create(uint16_t *layer_dimension, struct node_feature *node_feature_data, int node_num);
 void aggregator(struct message_package *rec_MessagePackage, struct node_feature *node_feature_data);
@@ -58,7 +65,7 @@ struct matrix create_matrix(int m, int n){
     return T;
 }
 
-void vector_add(struct vector *a, struct vector *b, struct vector *c){
+int vector_add(struct vector *a, struct vector *b, struct vector *c){
     if (a->n != b->n){
         printf("向量A和向量B的列数必须相同, a.n:%d b.n:%d\n", a->n, b->n);
         return -1;
@@ -67,7 +74,21 @@ void vector_add(struct vector *a, struct vector *b, struct vector *c){
         float temp = float_add(a->mat[i], b->mat[i]);
         c->mat[i] =  float_add(temp, c->mat[i]);
     }
-    return;
+    return 0;
+}
+
+int matrix_mux(struct vector *a, struct matrix *b, struct vector *c){
+    if (a->n != b->m){
+        printf("向量A的列数和向量B的行数必须相同, a.n:%d b.m:%d\n", a->n, b->m);
+        return -1;
+    }
+    for (int i=0; i<b->n; i++){
+        for (int j=0; j<b->m; j++){
+            float temp = float_mul(a->mat[j], b->vec[j].mat[i]);
+            c->mat[i] = float_add(temp, c->mat[i]);
+        }
+    }
+    return 0;
 }
 
 // 测试创建节点特征
@@ -104,7 +125,7 @@ void node_data_create(uint16_t *layer_dimension, struct node_feature *node_featu
 void aggregator(struct message_package *rec_MessagePackage, struct node_feature *node_feature_data){
     uint8_t layer_index = rec_MessagePackage->layer_index;
     uint16_t node_index = rec_MessagePackage->node_index;
-    vector_add(&node_feature_data->feature[layer_index].vec[node_index], &rec_MessagePackage->node, &node_feature_data->feature[layer_index].vec[node_index]);
+    int flag = vector_add(&node_feature_data->feature[layer_index].vec[node_index], &rec_MessagePackage->node, &node_feature_data->feature[layer_index].vec[node_index]);
     node_feature_data->degree[layer_index][node_index] = node_feature_data->degree[layer_index][node_index] - 1;
     if (node_feature_data->degree[layer_index][node_index] == 0){
         node_feature_data->feature[layer_index].vec[node_index] = node_feature_data->feature[layer_index].vec[node_index] * 10;
@@ -124,5 +145,9 @@ void message(struct message_package *send_MessagePackage, struct node_feature *n
     return;
 }
 
+void linearization(struct node_feature *node_feature_data){
+    
+}
 
 #endif
+
