@@ -68,9 +68,12 @@ int main(void){
 	enable_int(INT_ROUTER);
 
 	// 测试数据
-	uint16_t layer_dimension[2] = {8, 8};  
+	uint32_t layer_dimension[2] = {8, 8};  
 	int node_num = 10;
 	node_data_create(layer_dimension, &node_feature_data, node_num);
+
+
+	GCN_mem_int(&node_feature_data); 
 
 	
 	int node_list[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -80,8 +83,8 @@ int main(void){
 		// 等待中断
 		if (router_rcv_int_flag){
 			router_rcv_int_flag = 0;
-			uint8_t layer_index = rec_MessagePackage->layer_index;
-			uint16_t node_index = rec_MessagePackage->node_index;
+			uint32_t layer_index = rec_MessagePackage->layer_index;
+			uint32_t node_index = rec_MessagePackage->node_index;
 			if (node_feature_data.degree[layer_index][node_index]!=0){
 				int node_list[1] = {node_index};
 				message(&send_MessagePackage, &node_feature_data, node_list, 1, 0);

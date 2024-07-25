@@ -1,5 +1,5 @@
-#ifndef  __TOOL_H__
-#define __TOOL_H__
+#ifndef  __GCN_TOOL_H__
+#define __GCN_TOOL_H__
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,39 +8,42 @@
 #include <math.h>
 #include "sMPI.h"
 #include "numerical_tool.h"
+#include "lbii.h"
 
 
 struct vector{
     float *mat;
-    uint16_t n;
+    uint32_t n;
 };
 
 struct matrix{
     vector *vec;
-    uint16_t m, n;
+    uint32_t m, n;
 };
 
 struct node_feature{
-    uint8_t layer_num;
-    uint16_t **degree;
-    matrix *feature;
+    uint32_t *layer_num;
+    uint32_t *node_num;
+    uint32_t **degree;
+    // matrix *feature;
+    uint32_t *feature;
 };
 
 struct message_package{
-    uint8_t layer_index;
-    uint16_t node_index;
+    uint32_t layer_index;
+    uint32_t node_index;
     vector node;
 }
 
 struct GCN_parameter{
-    uint8_t layer_num;
-    uint16_t *layer_dimension;
-    // weight;
-    // bias;
+    uint32_t *layer_num;
+    uint32_t *layer_dimension;
+    float *weight;
+    float *bias;
 }
 
 
-void node_data_create(uint16_t *layer_dimension, struct node_feature *node_feature_data, int node_num);
+void node_data_create(uint32_t *layer_dimension, struct node_feature *node_feature_data, int node_num);
 void aggregator(struct message_package *rec_MessagePackage, struct node_feature *node_feature_data);
 void message(struct message_package *send_MessagePackage, struct node_feature *node_feature_data, int *node_list, int node_num, int layer_index);
 
@@ -92,7 +95,7 @@ int matrix_mux(struct vector *a, struct matrix *b, struct vector *c){
 }
 
 // 测试创建节点特征
-void node_data_create(uint16_t *layer_dimension, struct node_feature *node_feature_data, int node_num){
+void node_data_create(uint32_t *layer_dimension, struct node_feature *node_feature_data, int node_num){
     const uint8_t layer_num = sizeof(layer_dimension)/sizeof(layer_dimension[0]);
     
     node_feature_data->layer_num = layer_num;
@@ -147,6 +150,26 @@ void message(struct message_package *send_MessagePackage, struct node_feature *n
 
 void linearization(struct node_feature *node_feature_data){
     
+}
+
+
+
+void GCN_mem_init(struct node_feature *node_feature_data, struct GCN_parameter *GCN_parameter_data){
+    GCN_parameter_data.layer_num = (volatile uint32_t *)RISCV_SRAM_BASE_ADDR(0);
+    GCN_parameter_data.layer_dimension = (volatile uint32_t *)RISCV_SRAM_BASE_ADDR(1);
+    node_feature_data.node_num = (volatile uint32_t *)RISCV_SRAM_BASE_ADDR(*(GCN_parameter_data.layer_num)+1);
+    uint32_t *weight_addr = (volatile uint32_t *)RISCV_SRAM_BASE_ADDR(*(GCN_parameter_data.layer_num)+2);
+    uint32_t *node_values = (volatile uint32_t *)RISCV_SRAM_BASE_ADDR(*weight_addr);
+    uint32_t *dst_weight = (volatile uint32_t *)RISCV_SRAM_BASE_ADDR(*node_values);
+    uint32_t *gcn_weight = (volatile uint32_t *)RISCV_SRAM_BASE_ADDR(*dst_weight);
+
+    node_feature_data.feature = (volatile uint32_t *)node_values;
+    GCN_parameter_data.weight = (volatile uint32_t *)gcn_weight;
+    GCN_parameter_data.bias = (volatile uint32_t *)(gcn_weight+(*GCN_parameter_data.layer_dimension)*(*(GCN_parameter_data.layer_dimension+1)));
+
+    
+
+    return;
 }
 
 #endif

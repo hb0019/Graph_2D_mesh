@@ -39,8 +39,18 @@
 #define LBR_TRANS_SRAM_1                      0xB000
 
 //RECV硬件SRAM地址
-#define LBR_RECV_SRAM_0                       0x8000
+#define LBR_RECV_SRAM_0                 	  0x8000
 #define LBR_RECV_SRAM_1                       0x9000
+
+//硬件可操作地址空间
+#define RISCV_SRAM_BASE                       0x30600000
+#define NPU0_BASE                             0x30000000
+#define NPU1_BASE                             0x31000000
+#define NPU2_BASE                             0x32000000
+#define NPU3_BASE                             0x33000000
+//硬件调用地址
+#define RISCV_SRAM_BASE_ADDR(n)               (RISCV_SRAM_BASE + n*sizeof(uint32_t))
+
 
 #define readReg32_cpu_rcv() (read_reg32((reg32_t)LBR_REG_ADDR(RECV_BASE_ADDR)))
 #define writeReg32_cpu_rcv(value) (write_reg32((reg32_t)LBR_REG_ADDR(RECV_BASE_ADDR), value))
@@ -49,5 +59,7 @@
 #define readMemory32_cpu_rcv_sram0(addr) (read_reg32(LBR_SRAM_ADDR(LBR_RECV_SRAM_0) + addr))
 #define readMemory32_cpu_rcv_sram1(addr) (read_reg32(LBR_SRAM_ADDR(LBR_RECV_SRAM_1) + addr))
 #define readMemory32(addr, offset) (read_reg32((reg32_t)addr + offset))
+
+
 
 #endif
