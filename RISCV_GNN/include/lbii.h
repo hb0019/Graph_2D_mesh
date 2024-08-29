@@ -10,6 +10,10 @@
 #ifndef __LBII_H__
 #define __LBII_H__
 
+#include <stdio.h>
+#include <stdlib.h>
+#include "common.h"
+
 //调用地址
 #define LBR_REG_ADDR(n)                       (LBR_BASE_REG_ADDR | n)
 #define LBR_SRAM_ADDR(n)                      (LBR_BASE | n)
@@ -43,7 +47,7 @@
 #define LBR_RECV_SRAM_1                       0x9000
 
 //硬件可操作地址空间
-#define RISCV_SRAM_BASE                       0x30600000
+#define RISCV_SRAM_BASE                       0x305e0000 
 #define NPU0_BASE                             0x30000000
 #define NPU1_BASE                             0x31000000
 #define NPU2_BASE                             0x32000000
@@ -63,3 +67,4 @@
 
 
 #endif
+

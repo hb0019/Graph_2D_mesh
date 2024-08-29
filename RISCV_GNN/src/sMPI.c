@@ -41,7 +41,7 @@ void send_raw_pkt(
 
     /*******************第一拍*******************/
     // 包头
-    buff = RAW_PACKAGE_HEAD(x_src, y_src, x_dst, y_dst);
+    buff = RAW_PACKAGE_HEAD(x_src, y_src, dest_x, dest_y);
     // 包头写入SRAM低32位
     // 1100 0000 0000 0000 0000 0000 0000 0000
     write_reg32((reg32_t)LBR_SRAM_ADDR(LBR_TRANS_SRAM_0), (unsigned int)buff);//4000 A000        
@@ -58,14 +58,14 @@ void send_raw_pkt(
     
     /*******************第三拍*******************/
     // 写入node_feature
-    write_reg32((reg32_t)(LBR_SRAM_ADDR(LBR_TRANS_SRAM_0)+16), (unsigned int)MessagePackage->node->n);
+    write_reg32((reg32_t)(LBR_SRAM_ADDR(LBR_TRANS_SRAM_0)+16), (unsigned int)MessagePackage->node.n);
     /*******************第四拍*******************/
-    for (unsigned int i=0; i<MessagePackage->node->n; i++){
-        write_reg32((reg32_t)(LBR_SRAM_ADDR(LBR_TRANS_SRAM_0)+24+i*4), MessagePackage->node->mat[i]);
+    for (unsigned int i=0; i<MessagePackage->node.n; i++){
+        write_reg32((reg32_t)(LBR_SRAM_ADDR(LBR_TRANS_SRAM_0)+24+i*4), MessagePackage->node.mat[i]);
     }
 
     // 特定操作，包深度描述写入Router_Trans
-    write_reg32((reg32_t)LBR_REG_ADDR(TRANS_BASE_ADDR), WRITE_CPU_TRANS_DATA_INFO(0, MessagePackage->node->n+3));//4000 C030
+    write_reg32((reg32_t)LBR_REG_ADDR(TRANS_BASE_ADDR), WRITE_CPU_TRANS_DATA_INFO(0, MessagePackage->nod.n+3));//4000 C030
     
     return;
 }
@@ -81,11 +81,11 @@ void rec_raw_pkt(
     }
     MessagePackage->layer_index = readMemory32(sram_addr, 0); 
     MessagePackage->node_index = readMemory32(sram_addr, 4); 
-    MessagePackage->node->n = readMemory32(sram_addr, 8);
+    MessagePackage->node.n = readMemory32(sram_addr, 8);
 
     for (uint32_t i=3; i<rdata_rcv_len; i++){
         // 读RECV的SRAM
-        MessagePackage->node->mat[i] = readMemory32(sram_addr, 16+i*4);
+        MessagePackage->node.mat[i] = readMemory32(sram_addr, 16+i*4);
         // rdata_low = readMemory32(sram_addr, i*8 + );        
         // rdata_high = readMemory32(sram_addr, i*8 + 4 + );    
     }

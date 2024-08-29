@@ -8,41 +8,41 @@
  ============================================================================
  */
 #ifndef __SMPI_H__
-#define __SMPI_H_
+#define __SMPI_H__
 
 #include "GCN_tool.h"
 
-//调用地址
-#define LBR_REG_ADDR(n)                       (LBR_BASE_REG_ADDR | n)
-#define LBR_SRAM_ADDR(n)                      (LBR_BASE | n)
-//寄存器基础地址定义
-#define LBR_BASE                              0x40000000
-#define LBR_BASE_REG_ADDR                     0x4000C000
+// //调用地址
+// #define LBR_REG_ADDR(n)                       (LBR_BASE_REG_ADDR | n)
+// #define LBR_SRAM_ADDR(n)                      (LBR_BASE | n)
+// //寄存器基础地址定义
+// #define LBR_BASE                              0x40000000
+// #define LBR_BASE_REG_ADDR                     0x4000C000
 
-//CPU_TRANS和CPU_RCV寄存器地址定义
-#define TRANS_BASE_ADDR                       0x30
-#define RECV_BASE_ADDR                        0x34 
+// //CPU_TRANS和CPU_RCV寄存器地址定义
+// #define TRANS_BASE_ADDR                       0x30
+// #define RECV_BASE_ADDR                        0x34 
 
-//Others
-#define LBR_DST                               0x00
-#define LBR_SRC                               0x04
-#define LBR_LOCAL                             0x08
-#define LB_XY_SRC_CPU                         0x0C
-#define SP_DATA_LOW                           0x10
-#define SP_DATA_HIGH                          0x14
-#define LBR_BASE_ADDR                         0x18
-#define LBR_XY_SRC                            0x20
-#define CPU_CODE                              0x24
-#define CPU_STATUS                            0x28
-#define TEST_REG                              0x2C  
+// //Others
+// #define LBR_DST                               0x00
+// #define LBR_SRC                               0x04
+// #define LBR_LOCAL                             0x08
+// #define LB_XY_SRC_CPU                         0x0C
+// #define SP_DATA_LOW                           0x10
+// #define SP_DATA_HIGH                          0x14
+// #define LBR_BASE_ADDR                         0x18
+// #define LBR_XY_SRC                            0x20
+// #define CPU_CODE                              0x24
+// #define CPU_STATUS                            0x28
+// #define TEST_REG                              0x2C  
 
-//TRANS硬件SRAM地址
-#define LBR_TRANS_SRAM_0                      0xA000
-#define LBR_TRANS_SRAM_1                      0xffff
+// //TRANS硬件SRAM地址
+// #define LBR_TRANS_SRAM_0                      0xA000
+// #define LBR_TRANS_SRAM_1                      0xffff
 
-//RECV硬件SRAM地址
-#define LBR_RECV_SRAM_0                 	  0x8000
-#define LBR_RECV_SRAM_1                       0x9000
+// //RECV硬件SRAM地址
+// #define LBR_RECV_SRAM_0                 	  0x8000
+// #define LBR_RECV_SRAM_1                       0x9000
 
 #define sMPI_East							  0
 #define sMPI_South                            1

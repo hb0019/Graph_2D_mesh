@@ -1,10 +1,10 @@
 /*
  ============================================================================
- Name        : sMPI.h
+ Name        : numerical_tool.h
  Author      : huangbin
  Version     :
  Copyright   : Your copyright notice
- Description : sMPI Headfile
+ Description : numerical Headfile
  ============================================================================
  */
 #ifndef NUMERICAL_TOOL_H
@@ -12,6 +12,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+
+struct uint64{
+	uint32_t hi;
+	uint32_t lo;
+};
+
+bool check_unsigned_overflow(unsigned int a, unsigned int b, unsigned int result){
+	return (result < a) || (result < b);
+}
 
 struct float_info{
     unsigned int sign;
@@ -30,8 +40,8 @@ struct float_info{
 //                        00111100000000000000000 => 左移三位
 // 83.53125 -> 0_10000101_01001110001000000000000 
 //                       101001110001000000000000 
-struct float_info float_extract(float *f){
-    int *p = (int*)f;
+struct float_info float_extract(float f){ 
+    int *p = (int*)&f;
     static struct float_info fi;
     
     unsigned int i = *p;
@@ -117,38 +127,60 @@ float float_mul(float a, float b){
     struct float_info fi;
 
     // step1: 尾数相乘
-    unsigned long long temp = (ai.mantissa | 0x00800000);
-	temp = (temp * (bi.mantissa | 0x00800000)) >> 23;
-    fi.mantissa = (unsigned int)temp;
+    struct uint64 temp;
+    temp.hi = 0;
+    temp.lo = 0;
+
+    unsigned int ap = ai.mantissa | 0x00800000;
+    unsigned int bp = bi.mantissa | 0x00800000;
+
+    for (int i=0; i<32; i++){
+        if (bp & 0x1){
+			unsigned int lo_value = temp.lo + (ap << i);
+            temp.hi = temp.hi + (ap >> (32-i));
+			if (check_unsigned_overflow(temp.lo, (ap << i), lo_value)){
+				temp.hi = temp.hi + 0x1;
+			}
+			temp.lo = lo_value;
+        }
+        bp = bp >> 1;
+    }
+    fi.mantissa = ((temp.lo & 0xff800000) >> 22) | (temp.hi & 0x3fff)<<8;
 
     // step2: 阶码相加
     fi.exponent = ai.exponent + bi.exponent - 128;
 
     // step3: 规格化
-    fi.exponent = fi.exponent + (fi.mantissa >> 23);
-    fi.mantissa = fi.mantissa & 0x007FFFFF;
+    fi.exponent = fi.exponent + (temp.hi >> 14); 
+	if ((temp.hi >> 14) & 0x1){
+		fi.mantissa = fi.mantissa << (temp.hi >> 14);
+	}
+	fi.mantissa = fi.mantissa & 0x007FFFFF;
+	fi.sign = ai.sign ^ bi.sign;
 
     // step4: 结果规格化
     return float_combine(&fi);
 }
 
 float float_div(float a, float b){
+    if (a == 0.0 | b == 0.0)  return 0.0;
+
     struct float_info ai = float_extract(a);
     struct float_info bi = float_extract(b);
     struct float_info fi;
 
+    // step1: 尾数相除
+
+    // step2: 阶码相减
+
+    // step3: 规格化
+
+    // step4: 结果规格化
     return float_combine(&fi);
 }
 
 
 #endif
-
-
-
-
-//                            11010110101100010101111110100000 = 0xd6b15fa0
-//             100000001101111110101101                        = 0x0080dfad
-//11110101110000101001000000111101011100001010010
 
 
 
